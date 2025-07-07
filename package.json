@@ -16,7 +16,7 @@
     "next": "14.0.4",
     "openai": "^5.8.2",
     "papaparse": "^5.5.3",
-    "pdfjs-dist": "^5.3.31",
+    "pdfjs-dist": "^5.3.93",
     "postcss": "^8.4.32",
     "react": "^18",
     "react-dom": "^18",

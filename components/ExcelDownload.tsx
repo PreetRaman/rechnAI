@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
-import { AccountingRecord, generateExcelColumns, convertToExcelData } from '@/utils/dataProcessing'
+import { AccountingRecord, generateExcelColumns, convertToExcelData, downloadCSV } from '@/utils/dataProcessing'
 import * as XLSX from 'xlsx'
 
 interface ExcelDownloadProps {
@@ -131,28 +131,10 @@ export default function ExcelDownload({ data, language }: ExcelDownloadProps) {
     try {
       console.log('Generating CSV with data:', data)
       
-      const columns = generateExcelColumns(data)
-      console.log('Generated columns:', columns)
-      
-      const excelData = convertToExcelData(data, columns)
-      
-      const csvContent = [
-        columns.join(';'),
-        ...excelData.map(row => row.map(cell => `"${cell}"`).join(';'))
-      ].join('\n')
-      
       const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       const finalFilename = `ScanLedger_${timestamp}.csv`
       
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', finalFilename)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      downloadCSV(data, finalFilename)
       
       console.log('CSV file generated successfully:', finalFilename)
       

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <h1>PDF Test</h1>
+    <input type="file" id="pdfInput" accept=".pdf" />
+    <div id="result"></div>
+
+    <script>
+        // Set up PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        document.getElementById('pdfInput').addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            console.log('File selected:', file.name, file.size, file.type);
+
+            try {
+                // Convert file to ArrayBuffer
+                const arrayBuffer = await file.arrayBuffer();
+                console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
+
+                // Load PDF
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                console.log('PDF loaded, pages:', pdf.numPages);
+
+                // Get first page
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 1.0 });
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                // Render page
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+
+                console.log('PDF rendered to canvas successfully');
+                document.getElementById('result').innerHTML = '<p>PDF processed successfully!</p>';
+                document.getElementById('result').appendChild(canvas);
+
+            } catch (error) {
+                console.error('Error processing PDF:', error);
+                document.getElementById('result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -2,7 +2,8 @@
 
 import React, { useState, useRef } from 'react'
 import { Upload, FileImage, Loader2, Eye, EyeOff, Receipt, CreditCard, Brain, X, CheckCircle, AlertCircle } from 'lucide-react'
-import { extractFinancialData, AccountingRecord, convertFileToBase64, processOCRResponse, isValidFileType, isValidFileSize } from '@/utils/dataProcessing'
+import { extractFinancialData, extractMultipleTransactions, AccountingRecord, convertFileToBase64, processOCRResponse, isValidFileType, isValidFileSize } from '@/utils/dataProcessing'
+import { convertPDFToImages, extractTextFromPDF, isValidPDF, PDFPage } from '@/utils/pdfProcessing'
 
 interface ImageUploadProps {
   onDataExtracted: (data: AccountingRecord[]) => void
@@ -12,21 +13,25 @@ interface ImageUploadProps {
 }
 
 type DocumentType = 'bank-statement' | 'receipt' | null
+type FileType = 'image' | 'pdf'
 
 interface FileUploadStatus {
   file: File
+  fileType: FileType
   status: 'pending' | 'processing' | 'completed' | 'error'
   progress?: number
   error?: string
   extractedData?: AccountingRecord[]
   rawText?: string
+  pdfPages?: PDFPage[]
+  totalPages?: number
 }
 
 const translations = {
   de: {
     uploadTitle: 'Dokument hochladen',
     uploadSubtitle: 'Ziehen Sie Dateien hierher oder klicken Sie zum Auswählen',
-    supportedFormats: 'Unterstützte Formate: JPEG, JPG, PNG, BMP',
+    supportedFormats: 'Unterstützte Formate: JPEG, JPG, PNG, BMP, PDF',
     maxSize: 'Maximale Dateigröße: 10 MB',
     processingMethod: 'Verarbeitungsmethode',
     openai: 'OpenAI Vision API',
@@ -71,7 +76,7 @@ const translations = {
   en: {
     uploadTitle: 'Upload Document',
     uploadSubtitle: 'Drag files here or click to select',
-    supportedFormats: 'Supported formats: JPEG, JPG, PNG, BMP',
+    supportedFormats: 'Supported formats: JPEG, JPG, PNG, BMP, PDF',
     maxSize: 'Maximum file size: 10 MB',
     processingMethod: 'Processing Method',
     openai: 'OpenAI Vision API',
@@ -198,24 +203,31 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') return
+    
     const files = Array.from(event.target.files || [])
     setFileError('')
     if (files.length === 0) return
     const validFiles: FileUploadStatus[] = []
     const invalidFiles: string[] = []
     files.forEach(file => {
-      if (!isValidFileType(file)) {
+      if (!isValidFileType(file) && !isValidPDF(file)) {
         invalidFiles.push(file.name)
       } else if (!isValidFileSize(file, 10)) {
         invalidFiles.push(file.name)
       } else {
-        validFiles.push({ file, status: 'pending' })
+        validFiles.push({ 
+          file, 
+          fileType: isValidPDF(file) ? 'pdf' as const : 'image' as const,
+          status: 'pending' 
+        })
       }
     })
     if (invalidFiles.length > 0) {
       setFileError(language === 'de'
-        ? `Ungültige Dateien: ${invalidFiles.join(', ')}. Bitte verwenden Sie JPEG, JPG, PNG oder BMP.`
-        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG or BMP.`)
+        ? `Ungültige Dateien: ${invalidFiles.join(', ')}. Bitte verwenden Sie JPEG, JPG, PNG, BMP oder PDF.`
+        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG, BMP or PDF.`)
     }
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles])
@@ -227,24 +239,31 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') return
+    
     const files = Array.from(event.dataTransfer.files)
     setFileError('')
     if (files.length === 0) return
     const validFiles: FileUploadStatus[] = []
     const invalidFiles: string[] = []
     files.forEach(file => {
-      if (!isValidFileType(file)) {
+      if (!isValidFileType(file) && !isValidPDF(file)) {
         invalidFiles.push(file.name)
       } else if (!isValidFileSize(file, 10)) {
         invalidFiles.push(file.name)
       } else {
-        validFiles.push({ file, status: 'pending' })
+        validFiles.push({ 
+          file, 
+          fileType: isValidPDF(file) ? 'pdf' as const : 'image' as const,
+          status: 'pending' 
+        })
       }
     })
     if (invalidFiles.length > 0) {
       setFileError(language === 'de'
-        ? `Ungültige Dateien: ${invalidFiles.join(', ')}. Bitte verwenden Sie JPEG, JPG, PNG oder BMP.`
-        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG or BMP.`)
+        ? `Ungültige Dateien: ${invalidFiles.join(', ')}. Bitte verwenden Sie JPEG, JPG, PNG, BMP oder PDF.`
+        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG, BMP or PDF.`)
     }
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles])
@@ -259,23 +278,77 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
   }
 
   const processFileWithOpenAI = async (fileStatus: FileUploadStatus): Promise<AccountingRecord[]> => {
+    console.log('=== STARTING PDF/IMAGE PROCESSING ===')
+    
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') {
+      console.error('SSR detected, throwing error')
+      throw new Error('PDF processing can only be done in the browser')
+    }
+    
     const file = fileStatus.file
-    console.log('Starting OpenAI Vision processing for:', file.name)
-    console.log('File size:', file.size, 'bytes')
+    console.log('File details:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      fileType: fileStatus.fileType
+    })
     
     let base64Image: string
     let detectedDocType = detectedType
     
     try {
-      base64Image = await convertFileToBase64(file)
-      console.log('File converted to base64, length:', base64Image.length)
+      console.log('=== STARTING FILE CONVERSION ===')
+      
+            if (fileStatus.fileType === 'pdf') {
+        console.log('Processing PDF file with OpenAI method...')
+        
+        // For PDFs, extract text and process directly (more reliable than image conversion)
+        const extractedText = await extractTextFromPDF(file)
+        console.log('PDF text extracted, length:', extractedText.length)
+        
+        if (!extractedText || extractedText.trim().length === 0) {
+          throw new Error('No text could be extracted from PDF')
+        }
+        
+        // Process the extracted text directly for better reliability
+        console.log('Processing extracted text directly...')
+        let extractedData = extractMultipleTransactions(extractedText)
+        
+        if (extractedData.length === 0) {
+          extractedData = extractFinancialData(extractedText, detectedDocType || 'receipt')
+        }
+        
+        if (extractedData.length > 0) {
+          console.log('Successfully extracted data from PDF text:', extractedData)
+          return extractedData
+        } else {
+          throw new Error('No financial data could be extracted from the PDF')
+        }
+      } else {
+        console.log('Processing regular image file...')
+        // Regular image file
+        base64Image = await convertFileToBase64(file)
+        console.log('Image converted to base64, length:', base64Image.length)
+      }
+      
+      console.log('=== FILE CONVERSION COMPLETED ===')
     } catch (error) {
-      console.error('Error converting file to base64:', error)
+      console.error('=== FILE CONVERSION ERROR ===')
+      console.error('Error type:', error instanceof Error ? error.constructor.name : 'Unknown')
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error')
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      console.error('File details:', {
+        fileType: fileStatus.fileType,
+        fileName: file.name,
+        fileSize: file.size
+      })
       throw new Error(language === 'de'
         ? 'Datei-Konvertierung fehlgeschlagen. Bitte versuchen Sie es mit einer anderen Datei.'
         : 'File conversion failed. Please try with a different file.')
     }
     
+    // Now process the image (only for non-PDF files since PDFs are handled in Tesseract method)
     if (!detectedDocType) {
       // For images, use Tesseract for detection
       const { createWorker } = await import('tesseract.js')
@@ -333,7 +406,14 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
       } else {
         console.log('No structured data, falling back to text processing')
         console.log('Raw text for processing:', result.rawText)
-        parsedData = extractFinancialData(result.rawText, detectedDocType || 'receipt')
+        
+        // Try to extract multiple transactions first (for bank statements)
+        parsedData = extractMultipleTransactions(result.rawText)
+        
+        // If no multiple transactions found, use single document extraction
+        if (parsedData.length === 0) {
+          parsedData = extractFinancialData(result.rawText, detectedDocType || 'receipt')
+        }
       }
       
       console.log('Final parsed data:', parsedData)
@@ -350,14 +430,38 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
   }
 
   const processFileWithTesseract = async (fileStatus: FileUploadStatus): Promise<AccountingRecord[]> => {
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') {
+      throw new Error('PDF processing can only be done in the browser')
+    }
+    
     const file = fileStatus.file
     console.log('Starting Tesseract OCR processing for:', file.name)
     
     try {
       let text = ''
       
-      text = await convertFileToBase64(file)
-      console.log('File converted to base64, length:', text.length)
+      if (fileStatus.fileType === 'pdf') {
+        // Extract text directly from PDF
+        console.log('Processing PDF with text extraction...')
+        text = await extractTextFromPDF(file)
+        
+        // Update file status with extracted text
+        setSelectedFiles(prev => prev.map(fs => 
+          fs.file === file ? { ...fs, rawText: text } : fs
+        ))
+      } else {
+        // Regular image OCR
+        const { createWorker } = await import('tesseract.js')
+        const worker = await createWorker(language === 'de' ? 'deu+eng' : 'eng+deu')
+        
+        const { data: { text: ocrText } } = await worker.recognize(file)
+        await worker.terminate()
+        
+        text = ocrText
+      }
+      
+      console.log('Text extraction completed, text length:', text.length)
       
       if (!text || text.trim().length === 0) {
         throw new Error(language === 'de' 
@@ -371,7 +475,13 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
       setDocumentType(detectedDocType)
       
       // Extract financial data
-      const extractedData = extractFinancialData(text, detectedDocType || 'receipt')
+      // Try to extract multiple transactions first (for bank statements)
+      let extractedData = extractMultipleTransactions(text)
+      
+      // If no multiple transactions found, use single document extraction
+      if (extractedData.length === 0) {
+        extractedData = extractFinancialData(text, detectedDocType || 'receipt')
+      }
       
       if (extractedData.length === 0) {
         throw new Error(translations[language].noDataFound)
@@ -555,7 +665,7 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
       <input
         ref={fileInputRef}
         type="file"
-        accept=".jpeg,.jpg,.png,.bmp"
+        accept=".jpeg,.jpg,.png,.bmp,.pdf"
         onChange={handleFileSelect}
         multiple
         className="hidden"
