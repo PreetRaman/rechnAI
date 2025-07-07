@@ -697,8 +697,6 @@ export const isValidFileSize = (file: File, maxSizeMB: number = 10): boolean => 
   return file.size <= maxSizeBytes
 }
 
-
-
 export const generateExcelColumns = (data: AccountingRecord[]): string[] => {
   console.log('Generating Excel columns for data:', data)
   

@@ -56,7 +56,7 @@ const translations = {
     openaiError: 'Fehler bei der OpenAI-Verarbeitung.',
     networkError: ' Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung.',
     switchToTesseract: ' Versuchen Sie Tesseract OCR (offline) als Alternative.',
-    multipleFiles: 'Mehrere Dateien',
+    multipleFiles: 'Dateien hochladen',
     uploadMultiple: 'Mehrere Dateien hochladen',
     processingFiles: 'Verarbeite Dateien...',
     completedFiles: 'Abgeschlossene Dateien',
@@ -101,7 +101,7 @@ const translations = {
     openaiError: 'Error processing with OpenAI.',
     networkError: ' Network error. Please check your internet connection.',
     switchToTesseract: ' Try Tesseract OCR (offline) as an alternative.',
-    multipleFiles: 'Multiple Files',
+    multipleFiles: 'Upload Files',
     uploadMultiple: 'Upload Multiple Files',
     processingFiles: 'Processing files...',
     completedFiles: 'Completed Files',
@@ -200,33 +200,23 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     setFileError('')
-    
     if (files.length === 0) return
-    
-    // Validate all files
     const validFiles: FileUploadStatus[] = []
     const invalidFiles: string[] = []
-    
     files.forEach(file => {
       if (!isValidFileType(file)) {
         invalidFiles.push(file.name)
       } else if (!isValidFileSize(file, 10)) {
         invalidFiles.push(file.name)
       } else {
-        validFiles.push({
-          file,
-          status: 'pending'
-        })
+        validFiles.push({ file, status: 'pending' })
       }
     })
-    
     if (invalidFiles.length > 0) {
-      setFileError(language === 'de' 
+      setFileError(language === 'de'
         ? `Ungültige Dateien: ${invalidFiles.join(', ')}. Bitte verwenden Sie JPEG, JPG, PNG oder BMP.`
-        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG or BMP.`
-      )
+        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG or BMP.`)
     }
-    
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles])
       setDocumentType(null)
@@ -239,33 +229,23 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
     event.preventDefault()
     const files = Array.from(event.dataTransfer.files)
     setFileError('')
-    
     if (files.length === 0) return
-    
-    // Validate all files
     const validFiles: FileUploadStatus[] = []
     const invalidFiles: string[] = []
-    
     files.forEach(file => {
       if (!isValidFileType(file)) {
         invalidFiles.push(file.name)
       } else if (!isValidFileSize(file, 10)) {
         invalidFiles.push(file.name)
       } else {
-        validFiles.push({
-          file,
-          status: 'pending'
-        })
+        validFiles.push({ file, status: 'pending' })
       }
     })
-    
     if (invalidFiles.length > 0) {
-      setFileError(language === 'de' 
+      setFileError(language === 'de'
         ? `Ungültige Dateien: ${invalidFiles.join(', ')}. Bitte verwenden Sie JPEG, JPG, PNG oder BMP.`
-        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG or BMP.`
-      )
+        : `Invalid files: ${invalidFiles.join(', ')}. Please use JPEG, JPG, PNG or BMP.`)
     }
-    
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles])
       setDocumentType(null)
@@ -281,10 +261,11 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
   const processFileWithOpenAI = async (fileStatus: FileUploadStatus): Promise<AccountingRecord[]> => {
     const file = fileStatus.file
     console.log('Starting OpenAI Vision processing for:', file.name)
-    console.log('File type:', file.type)
     console.log('File size:', file.size, 'bytes')
     
     let base64Image: string
+    let detectedDocType = detectedType
+    
     try {
       base64Image = await convertFileToBase64(file)
       console.log('File converted to base64, length:', base64Image.length)
@@ -295,10 +276,10 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
         : 'File conversion failed. Please try with a different file.')
     }
     
-    let detectedDocType = detectedType
     if (!detectedDocType) {
+      // For images, use Tesseract for detection
       const { createWorker } = await import('tesseract.js')
-      const worker = await createWorker('deu+eng')
+      const worker = await createWorker(language === 'de' ? 'deu+eng' : 'eng+deu')
       const { data: { text } } = await worker.recognize(file)
       await worker.terminate()
       
@@ -313,10 +294,9 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
       imageBase64: base64Image,
       documentType: detectedDocType,
       language: language,
-      fileType: file.type
     }
     
-    console.log('Sending request to API with fileType:', file.type)
+    console.log('Sending request to API')
     
     const response = await fetch('/api/ocr', {
       method: 'POST',
@@ -374,13 +354,10 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
     console.log('Starting Tesseract OCR processing for:', file.name)
     
     try {
-      const { createWorker } = await import('tesseract.js')
-      const worker = await createWorker(language === 'de' ? 'deu+eng' : 'eng+deu')
+      let text = ''
       
-      const { data: { text } } = await worker.recognize(file)
-      await worker.terminate()
-      
-      console.log('Tesseract OCR completed, text length:', text.length)
+      text = await convertFileToBase64(file)
+      console.log('File converted to base64, length:', text.length)
       
       if (!text || text.trim().length === 0) {
         throw new Error(language === 'de' 
@@ -578,7 +555,7 @@ export default function ImageUpload({ onDataExtracted, isProcessing, setIsProces
       <input
         ref={fileInputRef}
         type="file"
-        accept=".jpeg,.jpg,.png,.bmp,image/*"
+        accept=".jpeg,.jpg,.png,.bmp"
         onChange={handleFileSelect}
         multiple
         className="hidden"
