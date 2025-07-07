@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'ScanLedger - Accounting App',
-  description: 'Upload images, analyze data, and generate CSV files for accounting purposes',
+  title: 'RechnAI - Intelligent Financial Data Extraction',
+  description: 'Upload receipts, bank statements, and financial documents. Extract data with AI and generate CSV files for accounting purposes.',
 }
 
 export default function RootLayout({

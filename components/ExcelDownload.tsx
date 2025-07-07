@@ -107,7 +107,7 @@ export default function ExcelDownload({ data, language }: ExcelDownloadProps) {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Financial Data')
       
       const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      const finalFilename = `ScanLedger_${timestamp}.xlsx`
+      const finalFilename = `RechnAI_${timestamp}.xlsx`
       
       XLSX.writeFile(workbook, finalFilename)
       
@@ -132,7 +132,7 @@ export default function ExcelDownload({ data, language }: ExcelDownloadProps) {
       console.log('Generating CSV with data:', data)
       
       const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      const finalFilename = `ScanLedger_${timestamp}.csv`
+      const finalFilename = `RechnAI_${timestamp}.csv`
       
       downloadCSV(data, finalFilename)
       
