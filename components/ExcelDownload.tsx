@@ -149,45 +149,45 @@ export default function ExcelDownload({ data, language }: ExcelDownloadProps) {
   const totalAmount = data.reduce((sum, record) => sum + record.betrag, 0)
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="text-center mb-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+    <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+      <div className="text-center mb-4 sm:mb-6">
+        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
           {translations[language].title}
         </h3>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600">
           {translations[language].subtitle}
         </p>
       </div>
 
-      <div className="bg-blue-50 rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-2 gap-4 text-center">
+      <div className="bg-blue-50 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-blue-900">{data.length}</div>
-            <div className="text-sm text-blue-700">{translations[language].records}</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-900">{data.length}</div>
+            <div className="text-xs sm:text-sm text-blue-700">{translations[language].records}</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-blue-900">
+            <div className="text-xl sm:text-2xl font-bold text-blue-900">
               {totalAmount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
             </div>
-            <div className="text-sm text-blue-700">{translations[language].totalAmount}</div>
+            <div className="text-xs sm:text-sm text-blue-700">{translations[language].totalAmount}</div>
           </div>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <button
           onClick={generateExcel}
           disabled={isGenerating || data.length === 0}
-          className={`flex items-center justify-center p-4 rounded-lg font-medium transition-colors ${
+          className={`flex items-center justify-center p-3 sm:p-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
             isGenerating || data.length === 0
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-green-600 text-white hover:bg-green-700'
           }`}
         >
           {isGenerating ? (
-            <Loader2 className="animate-spin h-5 w-5 mr-2" />
+            <Loader2 className="animate-spin h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           ) : (
-            <FileSpreadsheet className="h-5 w-5 mr-2" />
+            <FileSpreadsheet className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           )}
           {translations[language].excelButton}
         </button>
@@ -195,24 +195,24 @@ export default function ExcelDownload({ data, language }: ExcelDownloadProps) {
         <button
           onClick={generateCSV}
           disabled={isGenerating || data.length === 0}
-          className={`flex items-center justify-center p-4 rounded-lg font-medium transition-colors ${
+          className={`flex items-center justify-center p-3 sm:p-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
             isGenerating || data.length === 0
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
         >
           {isGenerating ? (
-            <Loader2 className="animate-spin h-5 w-5 mr-2" />
+            <Loader2 className="animate-spin h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           ) : (
-            <FileText className="h-5 w-5 mr-2" />
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           )}
           {translations[language].csvButton}
         </button>
       </div>
 
       {data.length === 0 && (
-        <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
-          <p className="text-yellow-800 text-sm">
+        <div className="mt-4 p-3 sm:p-4 bg-yellow-50 rounded-lg">
+          <p className="text-yellow-800 text-xs sm:text-sm">
             {translations[language].uploadFirst}
           </p>
         </div>
