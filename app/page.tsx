@@ -7,7 +7,6 @@ import DataAnalysis from '@/components/DataAnalysis'
 import ExcelDownload from '@/components/ExcelDownload'
 import { Globe } from 'lucide-react'
 import Logo from '@/components/Logo'
-import ResponsiveTest from '@/components/ResponsiveTest'
 
 type Language = 'de' | 'en'
 
@@ -215,7 +214,6 @@ export default function Home() {
           )}
         </div>
       </div>
-      <ResponsiveTest />
     </div>
   )
 } 
